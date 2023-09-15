@@ -26,3 +26,41 @@ jobs:
       run: dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal
+    - name: Publish
+      run: dotnet publish GitHubActions/GitHubActions.csproj -c Release -o publish
+    - name: Upload a Build Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: publish
+        path: GitHubActions/publish/**
+        if-no-files-found: error
+
+  deploy_dev:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: DEV
+      url: ${{ steps.deploywebapp.outputs.webapp-url }}
+
+    steps:
+    - name: Download a Build Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: publish
+        path: publish
+
+    - name: Login via Azure CLI
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy web app
+      id: deploywebapp
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ vars.APP_NAME }}
+        package: publish
+
+    - name: az cli logout
+      run: az logout
